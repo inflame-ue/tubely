@@ -1,9 +1,10 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"io"
-	"log"
 	"mime"
 	"net/http"
 	"os"
@@ -65,14 +66,20 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		respondWithError(w, http.StatusInternalServerError, "Failed to parse the media type from content type", err)
 		return
 	}
-	log.Print(mediaType)
 	if mediaType != "image/jpeg" && mediaType != "image/png" {
 		respondWithError(w, http.StatusBadRequest, "Invalid Content-Type header", err)
 		return
 	}
 
+	tempName := make([]byte, 32)
+	_, err = rand.Read(tempName)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to fill the temporary name", err)
+		return
+	}
+
 	fileExtension := strings.Split(mediaType, "/")[1]
-	fileName := fmt.Sprintf("%v.%v", videoIDString, fileExtension)
+	fileName := fmt.Sprintf("%v.%v", base64.RawURLEncoding.EncodeToString(tempName), fileExtension)
 	filePath := filepath.Join(cfg.assetsRoot, fileName)
 	writeFile, err := os.Create(filePath)
 	if err != nil {
