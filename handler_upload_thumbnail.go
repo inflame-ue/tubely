@@ -1,10 +1,12 @@
 package main
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
 	"github.com/google/uuid"
@@ -42,16 +44,26 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	}
 	defer file.Close()
 
-	mediaType := header.Header.Get("Content-Type")
-	imageData, err := io.ReadAll(file)
+	// mediaType := header.Header.Get("Content-Type")
+	// imageData, err := io.ReadAll(file)
+	// if err != nil {
+	// 	respondWithError(w, http.StatusInternalServerError, "Unable to read the multiform file", err)
+	// 	return
+	// }
+
+	fileExtension := strings.Split(r.Header.Get("Content-Type"), "/")[1]
+	fileName := fmt.Sprintf("%v.%v", videoIDString, fileExtension)
+	filePath := filepath.Join(cfg.assetsRoot, fileName)
+	writeFile, err := os.Create(filePath)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Unable to read the multiform file", err)
+		respondWithError(w, http.StatusInternalServerError, "Failed to create the file", err)
 		return
 	}
-
-	// prepare the image to be stored in sqlite
-	imageDataEncoded := base64.StdEncoding.EncodeToString(imageData)
-	dataURl := fmt.Sprintf("data:%v;base64,%v", mediaType, imageDataEncoded)
+	_, err = io.Copy(writeFile, file)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to copy the file", err)
+		return
+	}
 
 	video, err := cfg.db.GetVideo(videoID)
 	if err != nil {
@@ -63,7 +75,7 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	thumbnailURL := dataURl
+	thumbnailURL := fmt.Sprintf("http://localhost:%v/assets/%v", cfg.port, fileName)
 	video.ThumbnailURL = &thumbnailURL
 	err = cfg.db.UpdateVideo(video)
 	if err != nil {
