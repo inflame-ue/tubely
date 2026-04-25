@@ -4,22 +4,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os/exec"
 )
-
-func findGCD(a, b int) int {
-	for b != 0 {
-		a, b = b, a%b
-	}
-	return a
-}
 
 func getVideoAspectRatio(filePath string) (string, error) {
 	commandName := "ffprobe"
 	commandArgs := []string{
 		"-v",
 		"error",
-		"print_format",
+		"-print_format",
 		"json",
 		"-show_streams",
 		filePath,
@@ -50,15 +44,39 @@ func getVideoAspectRatio(filePath string) (string, error) {
 	// this finds the aspect ration
 	// gcd -> divide by gcd -> the aspect ration is w:h in reduced numbers
 	width, height := data.Streams[0].Width, data.Streams[0].Height
-	gcd := findGCD(width, height)
-	width /= gcd
-	height /= gcd
+	aspect_ratio := float64(width) / float64(height)
+	landscape, portrait := float64(16)/9, float64(9)/16
+	epsilon := 0.01
 
-	if width == 16 && height == 9 {
+	if math.Abs(float64(landscape)-aspect_ratio) < epsilon {
 		return "16:9", nil
-	} else if width == 9 && height == 16 {
+	} else if math.Abs(float64(portrait)-aspect_ratio) < epsilon {
 		return "9:16", nil
 	} else {
 		return "other", nil
 	}
+}
+
+func processVideoForFastStart(filePath string) (string, error) {
+	outputFilePath := filePath + ".processing"
+	commandName := "ffmpeg"
+	commandArgs := []string{
+		"-i",
+		filePath,
+		"-c",
+		"copy",
+		"-movflags",
+		"faststart",
+		"-f",
+		"mp4",
+		outputFilePath,
+	}
+
+	cmd := exec.Command(commandName, commandArgs...)
+	err := cmd.Run()
+	if err != nil {
+		return "", fmt.Errorf("failed to move the flags: %v", err)
+	}
+
+	return outputFilePath, nil
 }

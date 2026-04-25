@@ -89,7 +89,7 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 
 	aspectRatio, err := getVideoAspectRatio(tempFile.Name())
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Failed to get the video aspect ration", err)
+		respondWithError(w, http.StatusInternalServerError, "Failed to get the video aspect ratio", err)
 		return
 	}
 
